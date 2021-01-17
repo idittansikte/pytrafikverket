@@ -47,6 +47,7 @@ async def async_main(loop):
         parser.add_argument("-route", type=str)
         parser.add_argument("-from-harbor", type=str)
         parser.add_argument("-to-harbor", type=str)
+        parser.add_argument("-owner", type=str, default="")
 
         args = parser.parse_args()
 
@@ -80,6 +81,7 @@ async def async_main(loop):
                     args.from_station
                 )
                 to_station = await train_api.async_get_train_station(args.to_station)
+
                 print("from_station_signature: " + from_station.signature)
                 print("to_station_signature:   " + to_station.signature)
 
@@ -90,7 +92,7 @@ async def async_main(loop):
                 else:
                     time = datetime.now()
                 train_stop = await train_api.async_get_next_train_stop(
-                    from_station, to_station, time
+                    from_station, to_station, time, args.owner
                 )
                 print_values(train_stop)
 
