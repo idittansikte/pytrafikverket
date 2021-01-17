@@ -46,15 +46,21 @@ class TrainStop(object):
 
     _required_fields = ["ActivityId", "Canceled", "AdvertisedTimeAtLocation",
                         "EstimatedTimeAtLocation", "TimeAtLocation",
-                        "OtherInformation", "Deviation", "ModifiedTime"]
+                        "OtherInformation", "Deviation", "ModifiedTime",
+                        "Operator", "InformationOwner", "ProductInformation",
+                        "TrackAtLocation", "Advertised"]
 
-    def __init__(self, id, canceled: bool,
+    def __init__(self, id: str, canceled: bool,
                  advertised_time_at_location: datetime,
                  estimated_time_at_location: datetime,
                  time_at_location: datetime,
                  other_information: typing.List[str],
                  deviations: typing.List[str],
-                 modified_time: datetime):
+                 modified_time: datetime,
+                 operator: str,
+                 information_owner: str,
+                 product_information: str,
+                 track_at_location: str):
         """Initialize TrainStop."""
         self.id = id
         self.canceled = canceled
@@ -64,6 +70,11 @@ class TrainStop(object):
         self.other_information = other_information
         self.deviations = deviations
         self.modified_time = modified_time
+        self.operator = operator
+        self.information_owner = information_owner
+        self.product_information = product_information
+        self.track_at_location = track_at_location
+        self.following = None
 
     def get_state(self) -> TrainStopStatus:
         """Retrieve the state of the departure."""
@@ -110,9 +121,15 @@ class TrainStop(object):
         other_information = node_helper.get_texts("OtherInformation")
         deviations = node_helper.get_texts("Deviation")
         modified_time = node_helper.get_datetime_for_modified("ModifiedTime")
+        operator = node_helper.get_text("Operator")
+        information_owner = node_helper.get_text("InformationOwner")
+        product_information = node_helper.get_text("ProductInformation")
+        track_at_location = node_helper.get_text("TrackAtLocation")
         return cls(activity_id, canceled, advertised_time_at_location,
                    estimated_time_at_location, time_at_location,
-                   other_information, deviations, modified_time)
+                   other_information, deviations, modified_time,
+                   operator, information_owner, product_information,
+                   track_at_location)
 
 
 class TrafikverketTrain(object):
@@ -178,6 +195,10 @@ class TrafikverketTrain(object):
                                "AdvertisedTimeAtLocation",
                                date_as_text),
 
+                   FieldFilter(FilterOperation.equal,
+                               "Advertised",
+                               "true"),
+
                    OrFilter([FieldFilter(FilterOperation.equal,
                                          "ViaToLocation.LocationName",
                                          to_station.signature),
@@ -200,7 +221,8 @@ class TrafikverketTrain(object):
     async def async_get_next_train_stop(
             self, from_station: StationInfo,
             to_station: StationInfo,
-            after_time: datetime) -> TrainStop:
+            after_time: datetime,
+            owner: str = "") -> TrainStop:
         """Enable retreival of next departure."""
         date_as_text = after_time.strftime(Trafikverket.date_time_format)
 
@@ -222,6 +244,10 @@ class TrafikverketTrain(object):
                              FieldFilter(FilterOperation.equal,
                                          "ToLocation.LocationName",
                                          to_station.signature)])]
+        if owner != "":
+            filters.append(FieldFilter(FilterOperation.equal,
+                                       "InformationOwner",
+                                       owner))
 
         sorting = [FieldSort("AdvertisedTimeAtLocation", SortOrder.ascending)]
         train_announcements = await self._api.async_make_request(
@@ -229,15 +255,19 @@ class TrafikverketTrain(object):
             "1.6",
             TrainStop._required_fields,
             filters,
-            1,
+            3,
             sorting)
 
         if len(train_announcements) == 0:
             raise ValueError("No TrainAnnouncement found")
 
-        if len(train_announcements) > 1:
-            raise ValueError("Multiple TrainAnnouncements found")
-
         train_announcement = train_announcements[0]
 
-        return TrainStop.from_xml_node(train_announcement)
+        ts = TrainStop.from_xml_node(train_announcement)
+        if len(train_announcement) >= 2:
+            train_announcement_2 = train_announcements[1]
+            ts.following = TrainStop.from_xml_node(train_announcement_2)
+            if len(train_announcement) >= 3:
+                train_announcement_3 = train_announcements[2]
+                ts.following.following = TrainStop.from_xml_node(train_announcement_3)
+        return ts
