@@ -168,7 +168,7 @@ class Trafikverket(object):
                 helper = NodeHelper(error_node)
                 source = helper.get_text("SOURCE")
                 message = helper.get_text("MESSAGE")
-                raise ValueError("Source: " + source + ", message: " + message)
+                raise ValueError(f"Source: {source}, message: {message}")
 
             return etree.fromstring(content).xpath("/RESPONSE/RESULT/" + objecttype)
 

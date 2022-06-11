@@ -154,7 +154,6 @@ class TrafikverketTrain(object):
         if len(train_stations) > 1:
             raise ValueError(
                 "Found multiple stations with the specified name")
-
         return StationInfo.from_xml_node(train_stations[0])
 
     async def async_search_train_stations(
