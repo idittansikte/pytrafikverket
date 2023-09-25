@@ -238,3 +238,9 @@ class NodeHelper(object):
         if len(nodes) > 1:
             raise ValueError("Found multiple nodes should only 0 or 1 is allowed")
         return nodes[0].text.lower() == "true"
+
+    def get_node(self, field):
+        nodes = self._node.xpath(field)
+        if nodes is None or len(nodes) == 0:
+            return []
+        return nodes

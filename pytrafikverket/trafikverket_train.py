@@ -119,7 +119,10 @@ class TrainStop(object):
             "EstimatedTimeAtLocation")
         time_at_location = node_helper.get_datetime("TimeAtLocation")
         other_information = node_helper.get_texts("OtherInformation")
-        deviations = node_helper.get_texts("Deviation")
+        deviation_nodes = node_helper.get_node("Deviation")
+        deviations = []
+        for node in deviation_nodes:
+            deviations.append(NodeHelper(node).get_text("Description"))
         modified_time = node_helper.get_datetime_for_modified("ModifiedTime")
         operator = node_helper.get_text("Operator")
         information_owner = node_helper.get_text("InformationOwner")
@@ -154,6 +157,7 @@ class TrafikverketTrain(object):
         if len(train_stations) > 1:
             raise ValueError(
                 "Found multiple stations with the specified name")
+
         return StationInfo.from_xml_node(train_stations[0])
 
     async def async_search_train_stations(
@@ -233,9 +237,16 @@ class TrafikverketTrain(object):
                                "LocationSignature",
                                from_station.signature),
 
-                   FieldFilter(FilterOperation.greater_than_equal,
-                               "AdvertisedTimeAtLocation",
-                               date_as_text),
+                   FieldFilter(FilterOperation.equal,
+                               "Advertised",
+                               "true"),
+
+                   OrFilter([FieldFilter(FilterOperation.greater_than_equal,
+                                         "AdvertisedTimeAtLocation",
+                                         date_as_text),
+                             FieldFilter(FilterOperation.greater_than_equal,
+                                         "EstimatedTimeAtLocation",
+                                         date_as_text)]),
 
                    OrFilter([FieldFilter(FilterOperation.equal,
                                          "ViaToLocation.LocationName",
